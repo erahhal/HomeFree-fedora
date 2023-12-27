@@ -2,25 +2,39 @@
 
 FEDORA_URL=https://download.fedoraproject.org/pub/fedora/linux/releases/39/Server/x86_64/images
 FEDORA_IMAGE=Fedora-Server-KVM-39-1.5.x86_64.qcow2
+RECOMMENDED_IMAGE_SIZE=32
 
 if [ ! -f "$FEDORA_IMAGE" ] || [ -f "${FEDORA_IMAGE}.st" ]; then
   axel -n 8 $FEDORA_URL/$FEDORA_IMAGE
-  qemu-img resize $FEDORA_IMAGE +32G
+fi
+
+IMAGE_SIZE=$(qemu-img info $FEDORA_IMAGE | grep 'virtual size' | awk '{ print $3 }')
+if [ "$IMAGE_SIZE" -lt "$RECOMMENDED_IMAGE_SIZE" ]; then
+    read -p "Disk image is smaller than recommended. Increase to ${RECOMMENDED_IMAGE_SIZE}GB? (y/n) " yn
+
+    case $yn in
+        [yY] ) echo Resizing image...;
+            qemu-img resize $FEDORA_IMAGE +${RECOMMENDED_IMAGE_SIZE}G
+            ;;
+        [nN] ) echo Not resizing...;
+            exit;;
+        * ) echo invalid response;
+            exit 1;;
+    esac
 fi
 
 # Must run as root to allow guest to write to host share
 sudo -E virtiofsd --socket-path /tmp/vhostqemu --shared-dir ./ --cache auto &
 pids[1]=$!
-    # -netdev tap,id=enp1s0,br=hfbr0,helper=$(which qemu-bridge-helper) \
-    # -device e1000,netdev=enp1s0,mac=52:53:54:55:56:01 \
-sudo -E qemu-kvm \
+sudo -E qemu-system-x86_64 \
+    -cpu host \
     -enable-kvm \
-    -nographic \
+    -monitor telnet::45454,server,nowait \
     -chardev socket,id=char0,path=/tmp/vhostqemu \
     -device vhost-user-fs-pci,queue-size=1024,chardev=char0,tag=host_share \
     -smp 4 \
-    -m 16G \
-    -object memory-backend-file,id=mem,size=16G,mem-path=/dev/shm,share=on \
+    -m 12G \
+    -object memory-backend-file,id=mem,size=12G,mem-path=/dev/shm,share=on \
     -numa node,memdev=mem \
     -hda $FEDORA_IMAGE \
     -net nic \
