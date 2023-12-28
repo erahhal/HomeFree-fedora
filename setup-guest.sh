@@ -4,28 +4,43 @@ PLATFORM=$(sudo dmidecode -s system-manufacturer)
 
 if [ $PLATFORM == "QEMU" ]; then
 
+    sudo dnf install -y git bc
+
+    # Setup host share mount
+    if ! grep -q "/home/homefree/host" /etc/fstab; then
+        mkdir -p /home/homefree/host
+        echo "host_share /home/homefree/host virtiofs defaults,nofail,auto 0 2" | sudo tee -a /etc/fstab
+        sudo systemctl daemon-reload
+        sudo mount -a
+    fi
+
     TMP_MOUNT_SIZE=$(df -h | grep "/tmp" | awk '{ print $2 }')
     TMP_MOUNT_SIZE=${TMP_MOUNT_SIZE::-1}
 
     RECOMMENDED_TMP_SIZE=12
 
     if [ "$TMP_MOUNT_SIZE" -lt "$RECOMMENDED_TMP_SIZE" ]; then
-        read -p "/tmp is too small. Increase to ${RECOMMENDED_TMP_SIZE}GB? (y/n) " yn
+        while true
+        do
+            read -p "/tmp is too small. Increase to ${RECOMMENDED_TMP_SIZE}GB? (y/n) " yn
 
-        case $yn in
-            [yY] ) echo Resizing tmp...;
-                if grep -q "/tmp" /etc/fstab; then
-                    sudo sed -i '\|/tmp|d' /etc/fstab
-                fi
-                echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
-                systemctl daemon-reload
-                sudo mount -o remount,size=${RECOMMENDED_TMP_SIZE}G /tmp
-                ;;
-            [nN] ) echo Not resizing...;
-                exit;;
-            * ) echo invalid response;
-                exit 1;;
-        esac
+            case $yn in
+                [yY] ) echo Resizing tmp...;
+                    if grep -q "/tmp" /etc/fstab; then
+                        sudo sed -i '\|/tmp|d' /etc/fstab
+                    fi
+                    echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
+                    systemctl daemon-reload
+                    sudo mount -o remount,size=${RECOMMENDED_TMP_SIZE}G /tmp
+                    break
+                    ;;
+                [nN] ) echo Not resizing...;
+                    break
+                    ;;
+                * ) echo invalid response;
+                    ;;
+            esac
+        done
     fi
 
     # Check unallocated disk space

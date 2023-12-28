@@ -64,17 +64,22 @@ fi
 
 IMAGE_SIZE=$(qemu-img info $FEDORA_IMAGE | grep 'virtual size' | awk '{ print $3 }')
 if [ "$IMAGE_SIZE" -lt "$RECOMMENDED_IMAGE_SIZE" ]; then
-    read -p "Disk image is smaller than recommended. Increase to ${RECOMMENDED_IMAGE_SIZE}GB? (y/n) " yn
+    while true
+    do
+        read -p "Disk image is smaller than recommended. Increase to ${RECOMMENDED_IMAGE_SIZE}GB? (y/n) " yn
 
-    case $yn in
-        [yY] ) echo Resizing image...;
-            qemu-img resize $FEDORA_IMAGE +${RECOMMENDED_IMAGE_SIZE}G
-            ;;
-        [nN] ) echo Not resizing...;
-            exit;;
-        * ) echo invalid response;
-            exit 1;;
-    esac
+        case $yn in
+            [yY] ) echo Resizing image...;
+                qemu-img resize $FEDORA_IMAGE +${RECOMMENDED_IMAGE_SIZE}G
+                break
+                ;;
+            [nN] ) echo Not resizing...;
+                break
+                ;;
+            * ) echo invalid response;
+                ;;
+        esac
+    done
 fi
 
 # Must run as root to allow guest to write to host share
@@ -97,6 +102,18 @@ sudo -E qemu-system-x86_64 \
     -net user,hostfwd=tcp::2223-:22,hostfwd=tcp::8445-:443,hostfwd=tcp::8885-:80 \
     &
 pids[2]=$!
+
+# Wait for machine to be up, then run install script
+ssh-keygen -R "[localhost]:2223"
+ssh -p 2223 -o StrictHostKeyChecking=no homefree@localhost 'bash -s' < ./setup-guest.sh 2> /dev/null
+while test $? -gt 0
+do
+    sleep 5
+    ssh -p 2223 -o StrictHostKeyChecking=no homefree@localhost 'bash -s' < ./setup-guest.sh 2> /dev/null
+done
+
+echo "Setup complete!"
+
 for pid in ${pids[*]}; do
     wait $pid
 done
