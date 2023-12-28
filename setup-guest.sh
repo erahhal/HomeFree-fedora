@@ -19,28 +19,34 @@ if [ $PLATFORM == "QEMU" ]; then
 
     RECOMMENDED_TMP_SIZE=12
 
-    if [ "$TMP_MOUNT_SIZE" -lt "$RECOMMENDED_TMP_SIZE" ]; then
-        while true
-        do
-            read -p "/tmp is too small. Increase to ${RECOMMENDED_TMP_SIZE}GB? (y/n) " yn
+    if [ $(echo "$TMP_MOUNT_SIZE < $RECOMMENDED_TMP_SIZE" | bc) -ne 0 ]; then
+        # while true
+        # do
+        #     read -p "/tmp is too small. Increase to ${RECOMMENDED_TMP_SIZE}GB? (y/n) " yn
+        #
+        #     case $yn in
+        #         [yY] ) echo Resizing tmp...;
+        #             if grep -q "/tmp" /etc/fstab; then
+        #                 sudo sed -i '\|/tmp|d' /etc/fstab
+        #             fi
+        #             echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
+        #             sudo systemctl daemon-reload
+        #             sudo mount -o remount,size=${RECOMMENDED_TMP_SIZE}G /tmp
+        #             break
+        #             ;;
+        #         [nN] ) echo Not resizing...;
+        #             break
+        #             ;;
+        #         * ) echo invalid response;
+        #             ;;
+        #     esac
+        # done
 
-            case $yn in
-                [yY] ) echo Resizing tmp...;
-                    if grep -q "/tmp" /etc/fstab; then
-                        sudo sed -i '\|/tmp|d' /etc/fstab
-                    fi
-                    echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
-                    systemctl daemon-reload
-                    sudo mount -o remount,size=${RECOMMENDED_TMP_SIZE}G /tmp
-                    break
-                    ;;
-                [nN] ) echo Not resizing...;
-                    break
-                    ;;
-                * ) echo invalid response;
-                    ;;
-            esac
-        done
+        # Update automatically
+        if grep -q "/tmp" /etc/fstab; then
+            sudo sed -i '\|/tmp|d' /etc/fstab
+        fi
+        echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
     fi
 
     # Check unallocated disk space
