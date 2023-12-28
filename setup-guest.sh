@@ -47,6 +47,8 @@ if [ $PLATFORM == "QEMU" ]; then
             sudo sed -i '\|/tmp|d' /etc/fstab
         fi
         echo "tmpfs     /tmp     tmpfs     defaults,size=${RECOMMENDED_TMP_SIZE}G,mode=1777     0     0" | sudo tee -a /etc/fstab
+        sudo systemctl daemon-reload
+        sudo mount -o remount,size=${RECOMMENDED_TMP_SIZE}G /tmp
     fi
 
     # Check unallocated disk space
@@ -75,6 +77,8 @@ _EOF_
         sudo lvextend --devicesfile="" -l +100%FREE /dev/mapper/sysvg-root
         sudo xfs_growfs /dev/mapper/sysvg-root
     fi
+
+    cd host
 
     if ! git ls-remote HomeFree -q; then
         git clone https://github.com/erahhal/HomeFree.git
